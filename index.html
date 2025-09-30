@@ -1,101 +1,443 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Catatan Bersama Realtime</title>
+  <meta charset="UTF-8" />
+  <title>Tabel 12x40 Noneditable + Firebase Sync (perbaikan)</title>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      margin: 0;
-      background: #f4f4f9;
-    }
-    .container {
-      width: 90%;
-      max-width: 600px;
-      background: #fff;
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-    }
-    h2 {
-      text-align: center;
-      margin-bottom: 15px;
-    }
-    textarea {
-      width: 100%;
-      height: 250px;
-      padding: 10px;
-      font-size: 16px;
-      border-radius: 8px;
-      border: 1px solid #ccc;
-      resize: none;
-    }
-    button {
-      margin-top: 10px;
-      padding: 10px 15px;
-      border: none;
-      border-radius: 8px;
-      background: #007bff;
-      color: white;
-      font-size: 16px;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #0056b3;
-    }
+    * { box-sizing: border-box; }
+    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#d2b48c; }
+    h2 { margin:10px; padding:10px; color:#4b2e1e; }
+    .header-bar { display:flex; justify-content:space-between; align-items:center; padding:10px; background:#8b5e3c; color:#fff; }
+    .login-btn { background:none; border:none; color:white; font-size:16px; cursor:pointer; display:flex; align-items:center; gap:5px; }
+    .controls { display:flex; align-items:center; gap:10px; padding:10px; background:#8b5e3c; color:white; flex-wrap:wrap; }
+    label { font-weight:bold; color: #fff; }
+    input[type="number"], input[type="text"], input[type="email"], input[type="password"], button { padding:5px; font-size:14px; }
+    button { background:#4b2e1e; color:white; border:none; cursor:pointer; border-radius:4px; }
+    button:hover { background:#3a2418; }
+    .extra-controls { display:none; gap:10px; margin-left:auto; }
+    .table-container { width:100vw; height:calc(100vh - 220px); overflow:auto; padding:10px; }
+    table { border-collapse:collapse; width:100%; min-width:1000px; background:#f5deb3; }
+    th, td { border:1px solid #8b5e3c; padding:8px; text-align:left; }
+    th { position:sticky; top:0; background:#8b5e3c; color:white; z-index:1; }
+    td { background:#f5deb3; user-select:none; word-wrap:break-word; white-space:pre-wrap; }
+    .hide-id th:first-child, .hide-id td:first-child { display:none; }
+    .modal { display:none; position:fixed; z-index:20; left:0; top:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
+    .modal-content { background:#fff; margin:8% auto; padding:20px; border-radius:8px; width:420px; box-shadow:0 0 10px #333; }
+    .modal-content label { font-weight:bold; display:block; margin-top:10px; }
+    .modal-content input { width:100%; padding:6px; margin-top:4px; }
+    .modal-buttons { text-align:right; margin-top:15px; }
+    .save-btn { background:#4b2e1e; color:#fff; }
+    .cancel-btn { background:#ccc; }
+    .link-icon { margin-left:5px; cursor:pointer; text-decoration:none; }
   </style>
 </head>
 <body>
-  <div class="container">
-    <h2>📝 Catatan Bersama</h2>
-    <textarea id="editor" placeholder="Tulis sesuatu..."></textarea>
-    <button onclick="saveNote()">💾 Simpan</button>
+
+  <div class="header-bar">
+    <h2>Tabel Noneditable 12x40</h2>
+    <div style="display:flex; gap:10px; align-items:center;">
+      <button id="saveBtnManual">💾 Simpan</button>
+      <button class="login-btn" id="loginBtn">🔑 Login</button>
+    </div>
   </div>
 
+  <div class="controls">
+    <label for="dayInput">Tanggal:</label>
+    <input type="number" id="dayInput" min="1" max="31" placeholder="DD">
+    <label for="monthInput">Bulan:</label>
+    <input type="number" id="monthInput" min="1" max="12" placeholder="MM">
+    <label for="yearInput">Tahun:</label>
+    <input type="number" id="yearInput" placeholder="YYYY">
+    <button id="filterBtn">Cari</button>
+    <button id="resetBtn">Reset</button>
+    <div class="extra-controls" id="extraControls">
+      <button id="insertRowBtn">➕ Insert Baris</button>
+      <button id="deleteRowBtn">🗑️ Hapus Baris</button>
+    </div>
+  </div>
 
-  <!-- Firebase SDK -->
-  <script type="module">
-    // Import Firebase SDK versi modular
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc, onSnapshot } 
-      from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  <div class="table-container">
+    <table id="myTable"></table>
+  </div>
 
-    // Konfigurasi Firebase (ganti dengan punyamu!)
-    const firebaseConfig = {
-  apiKey: "AIzaSyCkl_YtR-Fp-m8Es7RlyArCB2BbvDjm9BE",
-  authDomain: "tes-hosting-1-0.firebaseapp.com",
-  projectId: "tes-hosting-1-0",
-  storageBucket: "tes-hosting-1-0.firebasestorage.app",
-  messagingSenderId: "37779194405",
-  appId: "1:37779194405:web:8de07e9aedd4d46019f5cc"
+  <!-- Modal edit sel -->
+  <div id="cellModal" class="modal">
+    <div class="modal-content">
+      <h3>Edit Sel</h3>
+      <label for="textInput">Isi Teks (max 100 karakter):</label>
+      <input type="text" id="textInput" maxlength="100">
+      <label for="urlInput">Alamat URL (opsional):</label>
+      <input type="url" id="urlInput" placeholder="https://contoh.com">
+      <div class="modal-buttons">
+        <button class="cancel-btn" id="cancelBtn">Batal</button>
+        <button class="save-btn" id="saveCellBtn">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal login -->
+  <div id="loginModal" class="modal">
+    <div class="modal-content">
+      <h3>Login</h3>
+      <label for="emailInput">Email:</label>
+      <input type="email" id="emailInput" required>
+      <label for="passwordInput">Password:</label>
+      <input type="password" id="passwordInput" required>
+      <div class="modal-buttons">
+        <button class="cancel-btn" id="closeLoginModal">Batal</button>
+        <button class="save-btn" id="doLoginBtn">Login</button>
+      </div>
+    </div>
+  </div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } 
+    from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+  import { getDatabase, ref, set, get } 
+    from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
+
+  // ====== CONFIG: ganti dengan milik Anda ======
+  const firebaseConfig = {
+  apiKey: "AIzaSyAgk8Rt2may06L6nYZ7TcWt4o7qynNd858",
+  authDomain: "tes-login-1-0.firebaseapp.com",
+  projectId: "tes-login-1-0",
+  storageBucket: "tes-login-1-0.firebasestorage.app",
+  messagingSenderId: "694798372863",
+  appId: "1:694798372863:web:7b6ef7ca73c67270a3a1ca"
 };
+  // =============================================
 
-    // Init Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+  const app = initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getDatabase(app);
 
-    const textarea = document.getElementById("editor");
-    const noteRef = doc(db, "notes", "sharedNote");
+  const rowsDefault = 40;
+  const cols = 12;
+  const columnSettings = [
+    { name: '✓', width: '60px' },
+    { name: 'Periode', width: '150px' },
+    { name: 'Tgl', width: '200px' },
+    { name: 'Bln', width: '120px' },
+    { name: 'Tahun', width: '180px' },
+    { name: 'Lasia Barat', width: '100px' },
+    { name: 'Status', width: '100px' },
+    { name: 'Kota', width: '120px' },
+    { name: 'Provinsi', width: '120px' },
+    { name: 'Negara', width: '100px' },
+    { name: 'Kode Pos', width: '80px' },
+    { name: 'Catatan', width: '200px' },
+  ];
 
-    // Realtime listener: update jika ada perubahan
-    onSnapshot(noteRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.data();
-        textarea.value = data.text || "";
+  // Elemen DOM
+  const table = document.getElementById('myTable');
+  const extraControls = document.getElementById('extraControls');
+  const saveBtnManual = document.getElementById('saveBtnManual');
+  const loginBtn = document.getElementById('loginBtn');
+  const loginModal = document.getElementById('loginModal');
+
+  // Status & data
+  let data = [];
+  let isLoggedIn = false;
+  let currentCellRow = null;
+  let currentCellCol = null;
+  let activeRowIndex = null;
+
+  // ===== Helper: buat default rows =====
+  function createDefaultRows() {
+    const arr = Array(rowsDefault).fill().map(() => Array(cols).fill(""));
+    arr.forEach(r => r[0] = false);
+    return arr;
+  }
+
+  // ===== Helper: normalisasi data (mengatasi object numeric dari Realtime DB) =====
+  function normalizeData(val) {
+    if (Array.isArray(val)) return val;
+    if (val && typeof val === 'object') {
+      const keys = Object.keys(val).sort((a,b)=> Number(a)-Number(b));
+      return keys.map(k => val[k]);
+    }
+    return createDefaultRows();
+  }
+
+  // ===== Header table (satu kali) =====
+  const header = table.insertRow();
+  for (let c=0; c<cols; c++) {
+    const th = document.createElement('th');
+    th.textContent = columnSettings[c]?.name || `Kolom ${c+1}`;
+    th.style.width = columnSettings[c]?.width || 'auto';
+    header.appendChild(th);
+  }
+
+  // Sembunyikan kolom 1 dan tombol Simpan secara default (belum login)
+  table.classList.add('hide-id');
+  saveBtnManual.style.display = 'none';
+
+  // ===== Render tabel berdasarkan data =====
+  function renderTable(dataset) {
+    // hapus semua baris kecuali header (index 0)
+    while (table.rows.length > 1) table.deleteRow(1);
+
+    dataset.forEach((rowData, rIndex) => {
+      const row = table.insertRow();
+      for (let c=0; c<cols; c++) {
+        const cell = row.insertCell();
+        cell.style.width = columnSettings[c]?.width || 'auto';
+
+        // pastikan klik apapun menandai baris aktif
+        cell.addEventListener('click', (e) => {
+          activeRowIndex = rIndex;
+        });
+
+        if (c === 0) {
+          cell.innerHTML = rowData[0] ? '✅' : '';
+          cell.addEventListener('click', (e) => {
+            // toggle checklist di model
+            data[rIndex][0] = !data[rIndex][0];
+            activeRowIndex = rIndex;
+            saveData();
+            renderTable(data);
+            e.stopPropagation();
+          });
+        } else if (c >= 5) {
+          const val = rowData[c];
+          if (val && typeof val === 'object') {
+            const span = document.createElement('span');
+            span.textContent = val.text || '';
+            cell.appendChild(span);
+            if (val.url) {
+              const link = document.createElement('a');
+              link.href = val.url;
+              link.target = "_blank";
+              link.className = 'link-icon';
+              link.textContent = '🔗';
+              cell.appendChild(link);
+            }
+          } else {
+            cell.textContent = val || '';
+          }
+
+          // buka modal edit hanya bila login (dan bukan klik link)
+          cell.addEventListener('click', (e) => {
+            if (!isLoggedIn) return;
+            if (e.target.tagName === 'A' || e.target.classList.contains('link-icon')) return;
+            currentCellRow = rIndex;
+            currentCellCol = c;
+            const existing = data[rIndex][c];
+            document.getElementById('textInput').value = (existing && typeof existing === 'object') ? (existing.text || '') : (cell.querySelector('span')?.textContent || cell.textContent || '');
+            document.getElementById('urlInput').value = (existing && typeof existing === 'object') ? (existing.url || '') : '';
+            document.getElementById('cellModal').style.display = 'block';
+          });
+        } else {
+          // kolom biasa (1..4 / indeks 1..4)
+          cell.textContent = rowData[c] || '';
+          if (isLoggedIn && c >= 1 && c <= 4) {
+            cell.contentEditable = "true";
+            cell.addEventListener('input', () => {
+              data[rIndex][c] = cell.textContent;
+              saveData();
+            });
+          } else {
+            cell.contentEditable = "false";
+          }
+        }
       }
     });
+  }
 
-    // Simpan manual ke Firestore
-    async function saveNote() {
-      await setDoc(noteRef, { text: textarea.value });
-      alert("Catatan tersimpan ke Firebase!");
+  // ===== Modal edit sel =====
+  document.getElementById('cancelBtn').onclick = () => {
+    document.getElementById('cellModal').style.display = 'none';
+  };
+  document.getElementById('saveCellBtn').onclick = () => {
+    const t = document.getElementById('textInput').value || '';
+    const u = document.getElementById('urlInput').value || '';
+    if (currentCellRow !== null && currentCellCol !== null) {
+      data[currentCellRow][currentCellCol] = { text: t, url: u };
+      saveData();
+      renderTable(data);
     }
-    window.saveNote = saveNote;
-  </script>
+    document.getElementById('cellModal').style.display = 'none';
+  };
+  window.addEventListener('click', (ev) => {
+    const modal = document.getElementById('cellModal');
+    if (ev.target === modal) modal.style.display = 'none';
+  });
+
+  // ===== Local storage helpers =====
+  const LOCAL_KEY = 'tableData_v1';
+  function saveLocalCopy() {
+    try {
+      const payload = { rows: data, meta: { activeRowIndex: activeRowIndex } };
+      localStorage.setItem(LOCAL_KEY, JSON.stringify(payload));
+    } catch(e) { console.error('gagal simpan local', e); }
+  }
+  function loadFromLocal() {
+    try {
+      const raw = localStorage.getItem(LOCAL_KEY);
+      if (!raw) return false;
+      const parsed = JSON.parse(raw);
+      if (parsed.rows) {
+        data = normalizeData(parsed.rows);
+        activeRowIndex = parsed.meta?.activeRowIndex ?? null;
+        return true;
+      } else {
+        // legacy: if top-level array saved
+        data = normalizeData(parsed);
+        activeRowIndex = null;
+        return true;
+      }
+    } catch(e) { console.warn('gagal baca local', e); return false; }
+  }
+
+  // ===== Firebase: simpan & ambil data =====
+  async function saveData() {
+    // Simpan ke local selalu
+    saveLocalCopy();
+
+    // Jika login, simpan juga ke DB
+    if (auth.currentUser) {
+      const uid = auth.currentUser.uid;
+      try {
+        await set(ref(db, `tables/${uid}/rows`), data);
+        await set(ref(db, `tables/${uid}/meta`), { activeRowIndex: activeRowIndex ?? null });
+      } catch(err) {
+        console.error('gagal simpan ke firebase', err);
+      }
+    }
+  }
+
+  async function loadDataFromFirebase() {
+    if (!auth.currentUser) return false;
+    const uid = auth.currentUser.uid;
+    try {
+      const snapRows = await get(ref(db, `tables/${uid}/rows`));
+      const snapMeta = await get(ref(db, `tables/${uid}/meta`));
+      if (snapRows.exists()) {
+        data = normalizeData(snapRows.val());
+      } else {
+        // fallback ke legacy path (whole node)
+        const snapLegacy = await get(ref(db, `tables/${uid}`));
+        if (snapLegacy.exists()) data = normalizeData(snapLegacy.val());
+        else data = createDefaultRows();
+      }
+      if (snapMeta.exists()) activeRowIndex = snapMeta.val().activeRowIndex ?? null;
+      else activeRowIndex = null;
+
+      // update local copy too
+      saveLocalCopy();
+      renderTable(data);
+      return true;
+    } catch(err) {
+      console.error('gagal load dari firebase', err);
+      return false;
+    }
+  }
+
+  // ===== Insert / Delete rows =====
+  document.getElementById('insertRowBtn').onclick = () => {
+    const newRow = Array(cols).fill("");
+    newRow[0] = false;
+    if (activeRowIndex !== null && activeRowIndex >= 0 && activeRowIndex < data.length) {
+      data.splice(activeRowIndex + 1, 0, newRow);
+      activeRowIndex = activeRowIndex + 1; // set aktif ke baris baru
+    } else {
+      data.push(newRow);
+      activeRowIndex = data.length - 1;
+    }
+    saveData();
+    renderTable(data);
+  };
+
+  document.getElementById('deleteRowBtn').onclick = () => {
+    // hapus baris yang ter-checklist
+    const anySelected = data.some(r => r[0]);
+    if (!anySelected) {
+      alert('tidak ada baris yang dipilih');
+      return;
+    }
+    data = data.filter(r => !r[0]);
+    activeRowIndex = null;
+    saveData();
+    renderTable(data);
+  };
+
+  // ===== Tombol Simpan manual (hanya aktif ketika login) =====
+  saveBtnManual.onclick = () => saveData();
+
+  // ===== Login / Logout =====
+  document.getElementById('closeLoginModal').onclick = () => loginModal.style.display = 'none';
+  document.getElementById('doLoginBtn').onclick = async () => {
+    const email = document.getElementById('emailInput').value;
+    const password = document.getElementById('passwordInput').value;
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      loginModal.style.display = 'none';
+    } catch(err) {
+      alert('Login gagal: ' + err.message);
+    }
+  };
+  loginBtn.onclick = () => {
+    if (auth.currentUser) {
+      // logout
+      signOut(auth);
+    } else {
+      loginModal.style.display = 'block';
+    }
+  };
+
+  // ===== Monitor auth state =====
+  onAuthStateChanged(auth, async (user) => {
+    if (user) {
+      // sudah login: tampilkan kontrol tambahan dan tombol simpan
+      isLoggedIn = true;
+      loginBtn.textContent = '🚪 Logout';
+      extraControls.style.display = 'flex';
+      saveBtnManual.style.display = 'inline-block';
+      table.classList.remove('hide-id'); // tampilkan kolom 1
+      // load data dari firebase (jika ada), override local copy
+      await loadDataFromFirebase();
+    } else {
+      // belum login / logout: sembunyikan kolom 1 & kontrol simpan/insert
+      isLoggedIn = false;
+      loginBtn.textContent = '🔑 Login';
+      extraControls.style.display = 'none';
+      saveBtnManual.style.display = 'none';
+      table.classList.add('hide-id');
+      // tampilkan data dari localStorage (jika ada), jangan reset ke kosong
+      const ok = loadFromLocal();
+      if (!ok) {
+        data = createDefaultRows();
+        activeRowIndex = null;
+      }
+      renderTable(data);
+    }
+  });
+
+  // ===== Inisialisasi awal tampilan =====
+  // ambil data local bila ada (sebelum login)
+  if (!loadFromLocal()) {
+    data = createDefaultRows();
+    activeRowIndex = null;
+  }
+  renderTable(data);
+
+  // Tutup modal login/cell kalau klik di luar
+  window.addEventListener('click', (ev) => {
+    if (ev.target === loginModal) loginModal.style.display = 'none';
+    const cm = document.getElementById('cellModal');
+    if (ev.target === cm) cm.style.display = 'none';
+  });
+
+  // OPTIONAL: filter & reset (tidak diubah fungsi, hanya placeholder)
+  document.getElementById('resetBtn').onclick = () => {
+    // reset input filter
+    document.getElementById('dayInput').value = '';
+    document.getElementById('monthInput').value = '';
+    document.getElementById('yearInput').value = '';
+  };
+
+</script>
 </body>
 </html>
+
