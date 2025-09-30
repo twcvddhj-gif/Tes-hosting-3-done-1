@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Tabel Noneditable 12x40</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0; padding: 0;
+      background-color: #d2b48c;
+    }
+    h2 { margin: 10px; padding: 10px; color: #4b2e1e; }
+    /* Header bar */
+    .header-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px; background-color: #8b5e3c; color: white;
+    }
+    .login-btn {
+      background: none; border: none; color: white;
+      font-size: 16px; cursor: pointer; display: flex; align-items: center; gap: 5px;
+    }
+    .login-btn:hover { text-decoration: underline; }
+    /* Kontrol */
+    .controls {
+      display: flex; align-items: center; gap: 10px; padding: 10px;
+      background-color: #8b5e3c; color: white; flex-wrap: wrap;
+    }
+    label { font-weight: bold; }
+    input[type="number"], input[type="text"], button {
+      padding: 5px; font-size: 14px;
+    }
+    button {
+      background-color: #4b2e1e; color: white; border: none;
+      cursor: pointer; border-radius: 4px;
+    }
+    button:hover { background-color: #3a2418; }
+    .extra-controls {
+      display: none; flex-direction: row; gap: 10px; margin-left: auto;
+    }
+    .extra-controls button {
+      background-color: #4b2e1e; padding: 6px 10px;
+    }
+    /* Tabel */
+    .table-container {
+      width: 100vw; height: calc(100vh - 170px);
+      overflow: auto; padding: 10px;
+    }
+    table {
+      border-collapse: collapse; width: 100%; min-width: 1000px;
+      background-color: #f5deb3;
+    }
+    th, td { border: 1px solid #8b5e3c; padding: 8px; text-align: left; }
+    th {
+      position: sticky; top: 0;
+      background-color: #8b5e3c; color: white; z-index: 1;
+    }
+    td {
+      background-color: #f5deb3;
+      user-select: none; word-wrap: break-word; white-space: pre-wrap;
+    }
+    /* Modal */
+    .modal { display: none; position: fixed; z-index: 10; left: 0; top: 0;
+      width: 100%; height: 100%; background: rgba(0,0,0,0.5);
+    }
+    .modal-content {
+      background: #fff; margin: 10% auto; padding: 20px;
+      border-radius: 8px; width: 400px; box-shadow: 0 0 10px #333;
+    }
+    .modal-content label {
+      font-weight: bold; display: block; margin-top: 10px;
+    }
+    .modal-content input { width: 100%; padding: 6px; margin-top: 4px; }
+    .modal-buttons { text-align: right; margin-top: 15px; }
+    .modal-buttons button {
+      padding: 6px 12px; margin-left: 5px; border: none; border-radius: 4px; cursor: pointer;
+    }
+    .save-btn { background: #4b2e1e; color: #fff; }
+    .cancel-btn { background: #ccc; }
+    .link-icon { margin-left: 5px; cursor: pointer; text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header-bar">
+    <h2>Tabel Noneditable 12x40</h2>
+    <div>
+      <button class="login-btn" id="loginBtn">🔑 Login</button>
+    </div>
+  </div>
+
+  <!-- Kontrol -->
+  <div class="controls">
+    <label for="dayInput">Tanggal:</label>
+    <input type="number" id="dayInput" min="1" max="31" placeholder="DD">
+    <label for="monthInput">Bulan:</label>
+    <input type="number" id="monthInput" min="1" max="12" placeholder="MM">
+    <label for="yearInput">Tahun:</label>
+    <input type="number" id="yearInput" placeholder="YYYY">
+    <button id="filterBtn">Cari</button>
+    <button id="resetBtn">Reset</button>
+
+    <div class="extra-controls" id="extraControls">
+      <button id="insertRowBtn">➕ Insert Baris</button>
+      <button id="deleteRowBtn">🗑️ Hapus Baris</button>
+      <button id="saveBtnCloud">💾 Simpan</button>
+    </div>
+  </div>
+
+  <!-- Tabel -->
+  <div class="table-container">
+    <table id="myTable"></table>
+  </div>
+
+  <!-- Modal -->
+  <div id="cellModal" class="modal">
+    <div class="modal-content">
+      <h3>Edit Sel</h3>
+      <label for="textInput">Isi Teks (max 100 karakter):</label>
+      <input type="text" id="textInput" maxlength="100">
+      <label for="urlInput">Alamat URL (opsional):</label>
+      <input type="url" id="urlInput" placeholder="https://contoh.com">
+      <div class="modal-buttons">
+        <button class="cancel-btn" id="cancelBtn">Batal</button>
+        <button class="save-btn" id="saveBtn">Simpan</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/9.23.0/firebase-app.js";
+    import { getFirestore, doc, setDoc, getDoc } 
+      from "https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore.js";
+
+    // === Firebase Config ===
+    const firebaseConfig = {
+  apiKey: "AIzaSyCkl_YtR-Fp-m8Es7RlyArCB2BbvDjm9BE",
+  authDomain: "tes-hosting-1-0.firebaseapp.com",
+  projectId: "tes-hosting-1-0",
+  storageBucket: "tes-hosting-1-0.firebasestorage.app",
+  messagingSenderId: "37779194405",
+  appId: "1:37779194405:web:23ac440d0922c6a119f5cc"
+};
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    const rows = 40, cols = 12;
+    const table = document.getElementById("myTable");
+    const extraControls = document.getElementById("extraControls");
+    const loginBtn = document.getElementById("loginBtn");
+
+    const columnSettings = [
+      { name: '✓', width: '60px' },
+      { name: 'Periode', width: '150px' },
+      { name: 'Tgl', width: '200px' },
+      { name: 'Bln', width: '120px' },
+      { name: 'Tahun', width: '180px' },
+      { name: 'Lasia Barat', width: '100px' },
+      { name: 'Status', width: '100px' },
+      { name: 'Kota', width: '120px' },
+      { name: 'Provinsi', width: '120px' },
+      { name: 'Negara', width: '100px' },
+      { name: 'Kode Pos', width: '80px' },
+      { name: 'Catatan', width: '200px' },
+    ];
+
+    let data = [];
+    let currentCellRow = null, currentCellCol = null;
+    let activeRowIndex = null;
+    let isLoggedIn = false;
+
+    // Buat header
+    const header = table.insertRow();
+    for (let c = 0; c < cols; c++) {
+      const th = document.createElement('th');
+      th.textContent = columnSettings[c]?.name || `Kolom ${c + 1}`;
+      th.style.width = columnSettings[c]?.width || 'auto';
+      header.appendChild(th);
+    }
+
+    // Buat data dummy awal
+    function initDummyData() {
+      const arr = [];
+      for (let r = 0; r < rows; r++) {
+        const rowData = Array(cols).fill('');
+        rowData[0] = false;
+        arr.push(rowData);
+      }
+      return arr;
+    }
+
+    // Render tabel
+    function renderTable(dataset) {
+      while (table.rows.length > 1) table.deleteRow(1);
+      dataset.forEach((rowData, rIndex) => {
+        const row = table.insertRow();
+        for (let c = 0; c < cols; c++) {
+          const cell = row.insertCell();
+          cell.style.width = columnSettings[c]?.width || 'auto';
+          if (c === 0) {
+            cell.innerHTML = rowData[0] ? '✅' : '';
+            cell.onclick = () => { data[rIndex][0] = !data[rIndex][0]; renderTable(data); };
+          } else if (c >= 5) {
+            const val = rowData[c];
+            if (val && typeof val === "object") {
+              const span = document.createElement("span");
+              span.textContent = val.text || "";
+              cell.appendChild(span);
+              if (val.url) {
+                const link = document.createElement("a");
+                link.href = val.url; link.target="_blank"; link.textContent="🔗";
+                cell.appendChild(link);
+              }
+            } else cell.textContent = val || "";
+            cell.onclick = (e) => {
+              if (!isLoggedIn || e.target.tagName === "A") return;
+              currentCellRow = rIndex; currentCellCol = c;
+              document.getElementById("textInput").value = val?.text || "";
+              document.getElementById("urlInput").value = val?.url || "";
+              document.getElementById("cellModal").style.display = "block";
+            };
+          } else {
+            cell.textContent = rowData[c] || "";
+            cell.contentEditable = (isLoggedIn && c>=1 && c<=4) ? "true":"false";
+            cell.oninput = ()=>{ data[rIndex][c] = cell.textContent; };
+          }
+        }
+      });
+    }
+
+    // Modal kontrol
+    document.getElementById("cancelBtn").onclick=()=>{document.getElementById("cellModal").style.display="none";}
+    document.getElementById("saveBtn").onclick=()=>{
+      data[currentCellRow][currentCellCol] = { 
+        text: document.getElementById("textInput").value, 
+        url: document.getElementById("urlInput").value
+      };
+      document.getElementById("cellModal").style.display="none"; renderTable(data);
+    }
+    window.onclick=(e)=>{ if(e.target.id==="cellModal") document.getElementById("cellModal").style.display="none"; }
+
+    // Login toggle
+    loginBtn.onclick=()=>{
+      isLoggedIn=!isLoggedIn;
+      loginBtn.textContent=isLoggedIn?"🚪 Logout":"🔑 Login";
+      extraControls.style.display=isLoggedIn?"flex":"none";
+      renderTable(data);
+    }
+
+    // Insert & Delete
+    document.getElementById("insertRowBtn").onclick=()=>{
+      const newRow=Array(cols).fill(""); newRow[0]=false;
+      if(activeRowIndex!=null) data.splice(activeRowIndex+1,0,newRow); else data.push(newRow);
+      renderTable(data);
+    }
+    document.getElementById("deleteRowBtn").onclick=()=>{
+      data=data.filter(r=>!r[0]); renderTable(data);
+    }
+
+    // Simpan ke Firestore
+    document.getElementById("saveBtnCloud").onclick=async()=>{
+      try{
+        await setDoc(doc(db,"tables","main"),{data:data});
+        alert("Data berhasil disimpan ke Firestore!");
+      }catch(err){ console.error(err); alert("Gagal simpan: "+err); }
+    }
+
+    // Load awal dari Firestore
+    async function loadData(){
+      try{
+        const snap=await getDoc(doc(db,"tables","main"));
+        if(snap.exists()){ data=snap.data().data; }
+        else{ data=initDummyData(); }
+      }catch(err){ console.error(err); data=initDummyData(); }
+      renderTable(data);
+    }
+    loadData();
+
+  </script>
+</body>
+</html>
