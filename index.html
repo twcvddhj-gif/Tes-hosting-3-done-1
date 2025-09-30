@@ -16,24 +16,32 @@
     }
     .container {
       width: 90%;
-      max-width: 600px;
+      max-width: 800px;
       background: #fff;
       padding: 20px;
       border-radius: 12px;
       box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      overflow-x: auto;
     }
     h2 {
       text-align: center;
       margin-bottom: 15px;
     }
-    textarea {
+    table {
+      border-collapse: collapse;
       width: 100%;
-      height: 250px;
-      padding: 10px;
-      font-size: 16px;
-      border-radius: 8px;
+    }
+    td, th {
       border: 1px solid #ccc;
-      resize: none;
+      padding: 8px;
+      text-align: left;
+      min-width: 100px;
+    }
+    td {
+      background: #fafafa;
+    }
+    td[contenteditable="true"] {
+      background: #fff;
     }
     button {
       margin-top: 10px;
@@ -52,48 +60,99 @@
 </head>
 <body>
   <div class="container">
-    <h2>📝 Catatan Bersama</h2>
-    <textarea id="editor" placeholder="Tulis sesuatu..."></textarea>
+    <h2>📝 Catatan Bersama (Tabel)</h2>
+    <table id="editor">
+      <thead>
+        <tr>
+          <th>Kolom 1</th>
+          <th>Kolom 2</th>
+          <th>Kolom 3</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td contenteditable="true"></td>
+          <td contenteditable="true"></td>
+          <td contenteditable="true"></td>
+        </tr>
+        <tr>
+          <td contenteditable="true"></td>
+          <td contenteditable="true"></td>
+          <td contenteditable="true"></td>
+        </tr>
+        <tr>
+          <td contenteditable="true"></td>
+          <td contenteditable="true"></td>
+          <td contenteditable="true"></td>
+        </tr>
+      </tbody>
+    </table>
     <button onclick="saveNote()">💾 Simpan</button>
   </div>
 
-
   <!-- Firebase SDK -->
   <script type="module">
-    // Import Firebase SDK versi modular
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getFirestore, doc, getDoc, setDoc, onSnapshot } 
+    import { getFirestore, doc, setDoc, onSnapshot } 
       from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-    // Konfigurasi Firebase (ganti dengan punyamu!)
     const firebaseConfig = {
-  apiKey: "AIzaSyCkl_YtR-Fp-m8Es7RlyArCB2BbvDjm9BE",
-  authDomain: "tes-hosting-1-0.firebaseapp.com",
-  projectId: "tes-hosting-1-0",
-  storageBucket: "tes-hosting-1-0.firebasestorage.app",
-  messagingSenderId: "37779194405",
-  appId: "1:37779194405:web:8de07e9aedd4d46019f5cc"
-};
+      apiKey: "AIzaSyCkl_YtR-Fp-m8Es7RlyArCB2BbvDjm9BE",
+      authDomain: "tes-hosting-1-0.firebaseapp.com",
+      projectId: "tes-hosting-1-0",
+      storageBucket: "tes-hosting-1-0.firebasestorage.app",
+      messagingSenderId: "37779194405",
+      appId: "1:37779194405:web:8de07e9aedd4d46019f5cc"
+    };
 
-    // Init Firebase
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    const textarea = document.getElementById("editor");
-    const noteRef = doc(db, "notes", "sharedNote");
+    const table = document.getElementById("editor");
+    const noteRef = doc(db, "notes", "sharedTable");
 
-    // Realtime listener: update jika ada perubahan
+    // ambil isi tabel → array 2D
+    function getTableData() {
+      const rows = [];
+      table.querySelectorAll("tbody tr").forEach(tr => {
+        const cells = [];
+        tr.querySelectorAll("td").forEach(td => {
+          cells.push(td.innerText.trim());
+        });
+        rows.push(cells);
+      });
+      return rows;
+    }
+
+    // isi tabel dari array 2D
+    function renderTable(data) {
+      const tbody = table.querySelector("tbody");
+      tbody.innerHTML = "";
+      data.forEach(row => {
+        const tr = document.createElement("tr");
+        row.forEach(cell => {
+          const td = document.createElement("td");
+          td.contentEditable = "true";
+          td.innerText = cell;
+          tr.appendChild(td);
+        });
+        tbody.appendChild(tr);
+      });
+    }
+
+    // listener realtime
     onSnapshot(noteRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data();
-        textarea.value = data.text || "";
+        if (data.table) renderTable(data.table);
       }
     });
 
-    // Simpan manual ke Firestore
+    // simpan tabel ke Firestore
     async function saveNote() {
-      await setDoc(noteRef, { text: textarea.value });
-      alert("Catatan tersimpan ke Firebase!");
+      const tableData = getTableData();
+      await setDoc(noteRef, { table: tableData });
+      alert("Tabel tersimpan ke Firebase!");
     }
     window.saveNote = saveNote;
   </script>
