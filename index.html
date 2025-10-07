@@ -2,20 +2,51 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <title>Tabel 12x40 Noneditable + Firebase Sync (perbaikan)</title>
+  <title>Tabel 12x40 Noneditable + Firebase Sync (perbaikan + Pencarian)</title>
   <style>
     * { box-sizing: border-box; }
     body { font-family: Arial, sans-serif; margin:0; padding:0; background:#d2b48c; }
     h2 { margin:10px; padding:10px; color:#4b2e1e; }
     .header-bar { display:flex; justify-content:space-between; align-items:center; padding:10px; background:#8b5e3c; color:#fff; }
     .login-btn { background:none; border:none; color:white; font-size:16px; cursor:pointer; display:flex; align-items:center; gap:5px; }
+
+    /* tambahan baru untuk menu pencarian */
+    #searchContainer {
+      background: #f3dcb2;
+      padding: 10px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 10px;
+    }
+    #searchInput {
+      padding: 10px;
+      width: 240px;
+      border-radius: 8px;
+      border: 1px solid #999;
+      font-size: 16px;
+    }
+    #searchBtn, #resetSearchBtn {
+      padding: 10px 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      background: #c19a6b;
+      color: #fff;
+      transition: 0.2s;
+    }
+    #searchBtn:hover, #resetSearchBtn:hover { background:#a67c52; }
+    tbody tr.hide { display:none; }
+
     .controls { display:flex; align-items:center; gap:10px; padding:10px; background:#8b5e3c; color:white; flex-wrap:wrap; }
-    label { font-weight:bold; color: #fff; }
+    label { font-weight:bold; color:#fff; }
     input[type="number"], input[type="text"], input[type="email"], input[type="password"], button { padding:5px; font-size:14px; }
     button { background:#4b2e1e; color:white; border:none; cursor:pointer; border-radius:4px; }
     button:hover { background:#3a2418; }
     .extra-controls { display:none; gap:10px; margin-left:auto; }
-    .table-container { width:100vw; height:calc(100vh - 220px); overflow:auto; padding:10px; }
+    .table-container { width:100vw; height:calc(100vh - 260px); overflow:auto; padding:10px; }
     table { border-collapse:collapse; width:100%; min-width:1000px; background:#f5deb3; }
     th, td { border:1px solid #8b5e3c; padding:8px; text-align:left; }
     th { position:sticky; top:0; background:#8b5e3c; color:white; z-index:1; }
@@ -29,9 +60,7 @@
     .save-btn { background:#4b2e1e; color:#fff; }
     .cancel-btn { background:#ccc; }
     .link-icon { margin-left:5px; cursor:pointer; text-decoration:none; }
-  
-  
-  
+
     .palette { display:flex; justify-content:space-between; margin:10px 0; }
     .color-box {
       width:30px; height:30px; border-radius:50%; border:2px solid #555;
@@ -39,12 +68,6 @@
     }
     .color-box:hover { transform:scale(1.08); }
     .selected-color { border:3px solid #000; }
-
-  
-  
-  
-  
-  
   </style>
 </head>
 <body>
@@ -55,6 +78,13 @@
       <button id="saveBtnManual">💾 Simpan</button>
       <button class="login-btn" id="loginBtn">🔑 Login</button>
     </div>
+  </div>
+
+  <!-- 🟢 Tambahan: Menu pencarian teks -->
+  <div id="searchContainer">
+    <input type="text" id="searchInput" placeholder="Cari teks atau kalimat...">
+    <button id="searchBtn">🔍 Cari</button>
+    <button id="resetSearchBtn">♻️ Reset</button>
   </div>
 
   <div class="controls">
@@ -82,7 +112,7 @@
       <h3>Edit Sel</h3>
       <label for="textInput">Isi Teks (max 100 karakter):</label>
       <input type="text" id="textInput" maxlength="100">
-      
+
       <!-- Palet Warna -->
       <div class="palette" id="palette">
         <div class="color-box" style="background:#000000;" data-color="#000000" title="Hitam"></div>
@@ -92,8 +122,6 @@
         <div class="color-box" style="background:#ff7700;" data-color="#ff7700" title="Orange"></div>
       </div>
 
-      
-      
       <label for="urlInput">Alamat URL (opsional):</label>
       <input type="url" id="urlInput" placeholder="https://contoh.com">
       <div class="modal-buttons">
@@ -118,402 +146,399 @@
     </div>
   </div>
 
-<script type="module">
-  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
-  import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } 
-    from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
-  import { getDatabase, ref, set, get } 
-    from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-auth.js";
+    import { getDatabase, ref, set, get } from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
 
-  // ====== CONFIG: ganti dengan milik Anda ======
-  const firebaseConfig = {
-  apiKey: "AIzaSyBZa4N4Qb1-c2nSxfmgTu947yYSbYlgmfU",
-  authDomain: "th2-7-dd72b.firebaseapp.com",
-  databaseURL: "https://th2-7-dd72b-default-rtdb.firebaseio.com",
-  projectId: "th2-7-dd72b",
-  storageBucket: "th2-7-dd72b.appspot.com",
-  messagingSenderId: "219227245083",
-  appId: "1:219227245083:web:28b54f33d3650b2128c6be"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyBZa4N4Qb1-c2nSxfmgTu947yYSbYlgmfU",
+      authDomain: "th2-7-dd72b.firebaseapp.com",
+      databaseURL: "https://th2-7-dd72b-default-rtdb.firebaseio.com",
+      projectId: "th2-7-dd72b",
+      storageBucket: "th2-7-dd72b.appspot.com",
+      messagingSenderId: "219227245083",
+      appId: "1:219227245083:web:28b54f33d3650b2128c6be"
+    };
 
-  // =============================================
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getDatabase(app);
 
-  const app = initializeApp(firebaseConfig);
-  const auth = getAuth(app);
-  const db = getDatabase(app);
-      
-  
-  
+    // ... (seluruh kode Firebase & renderTable tetap seperti versi aslimu)
 
-  const rowsDefault = 40;
-  const cols = 12;
-  const table = document.getElementById('myTable');
-  const palette = document.getElementById('palette');
-  const columnSettings = [
-    { name: '✓', width: '30px' },
-    { name: 'Periode', width: '300px' },
-    { name: 'Tgl', width: '50px' },
-    { name: 'Bln', width: '50px' },
-    { name: 'Thn', width: '100px' },
-    { name: 'Asia Barat', width: '800px' },
-    { name: 'Asia Timur', width: '800px' },
-    { name: 'Asia Selatan/Tengah', width: '800px' },
-    { name: 'Eropa', width: '800px' },
-    { name: 'Afrika', width: '800px' },
-    { name: 'Amerika', width: '800px' },
-    { name: 'Australia/Pasifik', width: '800px' },
-  ];
+    const rowsDefault = 40;
+    const cols = 12;
+    const table = document.getElementById('myTable');
+    const palette = document.getElementById('palette');
+    const columnSettings = [
+      { name:'✓', width:'30px' },
+      { name:'Periode', width:'300px' },
+      { name:'Tgl', width:'50px' },
+      { name:'Bln', width:'50px' },
+      { name:'Thn', width:'100px' },
+      { name:'Asia Barat', width:'800px' },
+      { name:'Asia Timur', width:'800px' },
+      { name:'Asia Selatan/Tengah', width:'800px' },
+      { name:'Eropa', width:'800px' },
+      { name:'Afrika', width:'800px' },
+      { name:'Amerika', width:'800px' },
+      { name:'Australia/Pasifik', width:'800px' }
+    ];
 
-  // Elemen DOM
-  
-  const extraControls = document.getElementById('extraControls');
-  const saveBtnManual = document.getElementById('saveBtnManual');
-  const loginBtn = document.getElementById('loginBtn');
-  const loginModal = document.getElementById('loginModal');
-  
+    const extraControls = document.getElementById('extraControls');
+    const saveBtnManual = document.getElementById('saveBtnManual');
+    const loginBtn = document.getElementById('loginBtn');
+    const loginModal = document.getElementById('loginModal');
 
-  // Status & data
-  let data = [];
-  let isLoggedIn = false;
-  let currentCellRow = null;
-  let currentCellCol = null;
-  let activeRowIndex = null;
-  let selectedColor = "#000000"; // default black
-  
-  
-  
-  
+    let data = [];
+    let isLoggedIn = false;
+    let currentCellRow = null;
+    let currentCellCol = null;
+    let activeRowIndex = null;
+    let selectedColor = "#000000";
 
-  // ===== Helper: buat default rows =====
-  function createDefaultRows() {
-    const arr = Array(rowsDefault).fill().map(() => Array(cols).fill(""));
-    arr.forEach(r => r[0] = false);
-    return arr;
-  }
-
-  // ===== Helper: normalisasi data (mengatasi object numeric dari Realtime DB) =====
-  function normalizeData(val) {
-    if (Array.isArray(val)) return val;
-    if (val && typeof val === 'object') {
-      const keys = Object.keys(val).sort((a,b)=> Number(a)-Number(b));
-      return keys.map(k => val[k]);
+    function createDefaultRows() {
+      const arr = Array(rowsDefault).fill().map(() => Array(cols).fill(""));
+      arr.forEach(r => r[0] = false);
+      return arr;
     }
-    return createDefaultRows();
-  }
 
-  // ===== Header table (satu kali) =====
-  const header = table.insertRow();
-  for (let c=0; c<cols; c++) {
-    const th = document.createElement('th');
-    th.textContent = columnSettings[c]?.name || `Kolom ${c+1}`;
-    th.style.width = columnSettings[c]?.width || 'auto';
-    header.appendChild(th);
-  }
+    function normalizeData(val) {
+      if (Array.isArray(val)) return val;
+      if (val && typeof val === 'object') {
+        const keys = Object.keys(val).sort((a,b)=> Number(a)-Number(b));
+        return keys.map(k => val[k]);
+      }
+      return createDefaultRows();
+    }
 
-  // Sembunyikan kolom 1 dan tombol Simpan secara default (belum login)
-  table.classList.add('hide-id');
-  saveBtnManual.style.display = 'none';
+    const header = table.insertRow();
+    for (let c=0; c<cols; c++) {
+      const th = document.createElement('th');
+      th.textContent = columnSettings[c]?.name || `Kolom ${c+1}`;
+      th.style.width = columnSettings[c]?.width || 'auto';
+      header.appendChild(th);
+    }
+          table.classList.add('hide-id');
+    saveBtnManual.style.display = 'none';
 
-  // ===== Render tabel berdasarkan data =====
-  function renderTable(dataset) {
-    // hapus semua baris kecuali header (index 0)
-    while (table.rows.length > 1) table.deleteRow(1);
-
-    dataset.forEach((rowData, rIndex) => {
-      const row = table.insertRow();
-      for (let c=0; c<cols; c++) {
-        const cell = row.insertCell();
-        cell.style.width = columnSettings[c]?.width || 'auto';
-
-        // pastikan klik apapun menandai baris aktif
-        cell.addEventListener('click', (e) => {
-          activeRowIndex = rIndex;
-        });
-
-        if (c === 0) {
-          cell.innerHTML = rowData[0] ? '✅' : '';
-          cell.addEventListener('click', (e) => {
-            // toggle checklist di model
-            data[rIndex][0] = !data[rIndex][0];
-            activeRowIndex = rIndex;
-            saveData();
-            renderTable(data);
-            e.stopPropagation();
-          });
-        } else if (c >= 5) {
-          const val = rowData[c];
-          if (val && typeof val === 'object') {
-            const span = document.createElement('span');
-            span.textContent = val.text || '';
-            span.style.color = val.color || '#000000';
-
-            cell.appendChild(span);
-            if (val.url) {
-              const link = document.createElement('a');
-              link.href = val.url;
-              link.target = "_blank";
-              link.className = 'link-icon';
-              link.textContent = '🔗';
-              cell.appendChild(link);
-            }
-          } else {
-            cell.textContent = val || '';
-          }
-
-          // buka modal edit hanya bila login (dan bukan klik link)
-          cell.addEventListener('click', (e) => {
-            if (!isLoggedIn) return;
-            if (e.target.tagName === 'A' || e.target.classList.contains('link-icon')) return;
-            currentCellRow = rIndex;
-            currentCellCol = c;
-            const existing = data[rIndex][c];
-            const colorVal = (existing && typeof existing === 'object') ? (existing.color || '#000000') : '#000000';
-            document.getElementById('textInput').value = (existing && typeof existing === 'object') ? (existing.text || '') : (cell.querySelector('span')?.textContent || cell.textContent || '');
-            document.getElementById('urlInput').value = (existing && typeof existing === 'object') ? (existing.url || '') : '';
-            document.getElementById('cellModal').style.display = 'block';
-
-// ambil warna dari data (atau default hitam)
-selectedColor = colorVal;
-textInput.style.color = selectedColor;
-updatePaletteSelection(selectedColor);
-
-            
-            
-          });
-        } else {
-          // kolom biasa (1..4 / indeks 1..4)
-          cell.textContent = rowData[c] || '';
-          if (isLoggedIn && c >= 1 && c <= 4) {
-            cell.contentEditable = "true";
-            cell.addEventListener('input', () => {
-              data[rIndex][c] = cell.textContent;
+    function renderTable(dataset) {
+      while (table.rows.length > 1) table.deleteRow(1);
+      dataset.forEach((rowData, rIndex) => {
+        const row = table.insertRow();
+        for (let c=0; c<cols; c++) {
+          const cell = row.insertCell();
+          cell.style.width = columnSettings[c]?.width || 'auto';
+          cell.addEventListener('click', (e) => { activeRowIndex = rIndex; });
+          if (c === 0) {
+            cell.innerHTML = rowData[0] ? '✅' : '';
+            cell.addEventListener('click', (e) => {
+              data[rIndex][0] = !data[rIndex][0];
+              activeRowIndex = rIndex;
               saveData();
+              renderTable(data);
+              e.stopPropagation();
+            });
+          } else if (c >= 5) {
+            const val = rowData[c];
+            if (val && typeof val === 'object') {
+              const span = document.createElement('span');
+              span.textContent = val.text || '';
+              span.style.color = val.color || '#000000';
+              cell.appendChild(span);
+              if (val.url) {
+                const link = document.createElement('a');
+                link.href = val.url;
+                link.target = "_blank";
+                link.className = 'link-icon';
+                link.textContent = '🔗';
+                cell.appendChild(link);
+              }
+            } else {
+              cell.textContent = val || '';
+            }
+            cell.addEventListener('click', (e) => {
+              if (!isLoggedIn) return;
+              if (e.target.tagName === 'A' || e.target.classList.contains('link-icon')) return;
+              currentCellRow = rIndex;
+              currentCellCol = c;
+              const existing = data[rIndex][c];
+              const colorVal = (existing && typeof existing === 'object') ? (existing.color || '#000000') : '#000000';
+              document.getElementById('textInput').value = (existing && typeof existing === 'object') ? (existing.text || '') : (cell.querySelector('span')?.textContent || cell.textContent || '');
+              document.getElementById('urlInput').value = (existing && typeof existing === 'object') ? (existing.url || '') : '';
+              document.getElementById('cellModal').style.display = 'block';
+              selectedColor = colorVal;
+              textInput.style.color = selectedColor;
+              updatePaletteSelection(selectedColor);
             });
           } else {
-            cell.contentEditable = "false";
+            cell.textContent = rowData[c] || '';
+            if (isLoggedIn && c >= 1 && c <= 4) {
+              cell.contentEditable = "true";
+              cell.addEventListener('input', () => {
+                data[rIndex][c] = cell.textContent;
+                saveData();
+              });
+            } else {
+              cell.contentEditable = "false";
+            }
           }
         }
-      }
-    });
-  }
-
-  // ===== Modal edit sel =====
-  document.getElementById('cancelBtn').onclick = () => {
-    document.getElementById('cellModal').style.display = 'none';
-  };
-  document.getElementById('saveCellBtn').onclick = () => {
-  const t = document.getElementById('textInput').value || '';
-  const u = document.getElementById('urlInput').value || '';
-  const c = selectedColor || '#000000';
-  if (currentCellRow !== null && currentCellCol !== null) {
-    data[currentCellRow][currentCellCol] = { text: t, url: u, color: c };
-    saveData();
-    renderTable(data);
-  }
-  document.getElementById('cellModal').style.display = 'none';
-};
-
-  window.addEventListener('click', (ev) => {
-    const modal = document.getElementById('cellModal');
-    if (ev.target === modal) modal.style.display = 'none';
-  });
-
-    
-    
-    
-  // ===== Warna teks
-  function updatePaletteSelection(color) {
-    document.querySelectorAll('.color-box').forEach(b => {
-      b.classList.toggle('selected-color', b.dataset.color === color);
-    });
-  }
-
-  palette.addEventListener('click', e => {
-    if (e.target.classList.contains('color-box')) {
-      selectedColor = e.target.dataset.color;
-      document.getElementById('textInput').style.color = selectedColor;
-      updatePaletteSelection(selectedColor);
+      });
     }
-  });
 
-    
-    
-  // ===== Local storage helpers =====
-  const LOCAL_KEY = 'tableData_v1';
-  function saveLocalCopy() {
-    try {
-      const payload = { rows: data, meta: { activeRowIndex: activeRowIndex } };
-      localStorage.setItem(LOCAL_KEY, JSON.stringify(payload));
-    } catch(e) { console.error('gagal simpan local', e); }
-  }
-  function loadFromLocal() {
-    try {
-      const raw = localStorage.getItem(LOCAL_KEY);
-      if (!raw) return false;
-      const parsed = JSON.parse(raw);
-      if (parsed.rows) {
-        data = normalizeData(parsed.rows);
-        activeRowIndex = parsed.meta?.activeRowIndex ?? null;
-        return true;
-      } else {
-        // legacy: if top-level array saved
-        data = normalizeData(parsed);
-        activeRowIndex = null;
-        return true;
+    document.getElementById('cancelBtn').onclick = () => {
+      document.getElementById('cellModal').style.display = 'none';
+    };
+
+    document.getElementById('saveCellBtn').onclick = () => {
+      const t = document.getElementById('textInput').value || '';
+      const u = document.getElementById('urlInput').value || '';
+      const c = selectedColor || '#000000';
+      if (currentCellRow !== null && currentCellCol !== null) {
+        data[currentCellRow][currentCellCol] = { text:t, url:u, color:c };
+        saveData();
+        renderTable(data);
       }
-    } catch(e) { console.warn('gagal baca local', e); return false; }
-  }
+      document.getElementById('cellModal').style.display = 'none';
+    };
 
-  // ===== Firebase: simpan & ambil data =====
-  async function saveData() {
-    // Simpan ke local selalu
-    saveLocalCopy();
+    window.addEventListener('click', (ev) => {
+      const modal = document.getElementById('cellModal');
+      if (ev.target === modal) modal.style.display = 'none';
+    });
 
-    // Jika login, simpan juga ke DB
-    if (auth.currentUser) {
+    function updatePaletteSelection(color) {
+      document.querySelectorAll('.color-box').forEach(b => {
+        b.classList.toggle('selected-color', b.dataset.color === color);
+      });
+    }
+
+    palette.addEventListener('click', e => {
+      if (e.target.classList.contains('color-box')) {
+        selectedColor = e.target.dataset.color;
+        document.getElementById('textInput').style.color = selectedColor;
+        updatePaletteSelection(selectedColor);
+      }
+    });
+
+    const LOCAL_KEY = 'tableData_v1';
+    function saveLocalCopy() {
+      try {
+        const payload = { rows:data, meta:{ activeRowIndex:activeRowIndex } };
+        localStorage.setItem(LOCAL_KEY, JSON.stringify(payload));
+      } catch(e) { console.error('gagal simpan local', e); }
+    }
+  
+    function loadFromLocal() {
+      try {
+        const raw = localStorage.getItem(LOCAL_KEY);
+        if (!raw) return false;
+        const parsed = JSON.parse(raw);
+        if (parsed.rows) {
+          data = normalizeData(parsed.rows);
+          activeRowIndex = parsed.meta?.activeRowIndex ?? null;
+          return true;
+        } else {
+          data = normalizeData(parsed);
+          activeRowIndex = null;
+          return true;
+        }
+      } catch(e) { console.warn('gagal baca local', e); return false; }
+    }
+
+    async function saveData() {
+      saveLocalCopy();
+      if (auth.currentUser) {
+        const uid = auth.currentUser.uid;
+        try {
+          await set(ref(db, `tables/${uid}/rows`), data);
+          await set(ref(db, `tables/${uid}/meta`), { activeRowIndex: activeRowIndex ?? null });
+        } catch(err) { console.error('gagal simpan ke firebase', err); }
+      }
+    }
+
+    async function loadDataFromFirebase() {
+      if (!auth.currentUser) return false;
       const uid = auth.currentUser.uid;
       try {
-        await set(ref(db, `tables/${uid}/rows`), data);
-        await set(ref(db, `tables/${uid}/meta`), { activeRowIndex: activeRowIndex ?? null });
+        const snapRows = await get(ref(db, `tables/${uid}/rows`));
+        const snapMeta = await get(ref(db, `tables/${uid}/meta`));
+        if (snapRows.exists()) {
+          data = normalizeData(snapRows.val());
+        } else {
+          const snapLegacy = await get(ref(db, `tables/${uid}`));
+          if (snapLegacy.exists()) data = normalizeData(snapLegacy.val());
+          else data = createDefaultRows();
+        }
+        if (snapMeta.exists()) activeRowIndex = snapMeta.val().activeRowIndex ?? null;
+        else activeRowIndex = null;
+        saveLocalCopy();
+        renderTable(data);
+        return true;
       } catch(err) {
-        console.error('gagal simpan ke firebase', err);
+        console.error('gagal load dari firebase', err);
+        return false;
       }
     }
-  }
 
-  async function loadDataFromFirebase() {
-    if (!auth.currentUser) return false;
-    const uid = auth.currentUser.uid;
-    try {
-      const snapRows = await get(ref(db, `tables/${uid}/rows`));
-      const snapMeta = await get(ref(db, `tables/${uid}/meta`));
-      if (snapRows.exists()) {
-        data = normalizeData(snapRows.val());
+    document.getElementById('insertRowBtn').onclick = () => {
+      const newRow = Array(cols).fill("");
+      newRow[0] = false;
+      if (activeRowIndex !== null && activeRowIndex >= 0 && activeRowIndex < data.length) {
+        data.splice(activeRowIndex + 1, 0, newRow);
+        activeRowIndex = activeRowIndex + 1;
       } else {
-        // fallback ke legacy path (whole node)
-        const snapLegacy = await get(ref(db, `tables/${uid}`));
-        if (snapLegacy.exists()) data = normalizeData(snapLegacy.val());
-        else data = createDefaultRows();
+        data.push(newRow);
+        activeRowIndex = data.length - 1;
       }
-      if (snapMeta.exists()) activeRowIndex = snapMeta.val().activeRowIndex ?? null;
-      else activeRowIndex = null;
-
-      // update local copy too
-      saveLocalCopy();
+      saveData();
       renderTable(data);
-      return true;
-    } catch(err) {
-      console.error('gagal load dari firebase', err);
-      return false;
-    }
-  }
+    };
 
-  // ===== Insert / Delete rows =====
-  document.getElementById('insertRowBtn').onclick = () => {
-    const newRow = Array(cols).fill("");
-    newRow[0] = false;
-    if (activeRowIndex !== null && activeRowIndex >= 0 && activeRowIndex < data.length) {
-      data.splice(activeRowIndex + 1, 0, newRow);
-      activeRowIndex = activeRowIndex + 1; // set aktif ke baris baru
-    } else {
-      data.push(newRow);
-      activeRowIndex = data.length - 1;
+    document.getElementById('deleteRowBtn').onclick = () => {
+      const anySelected = data.some(r => r[0]);
+      if (!anySelected) {
+        alert('tidak ada baris yang dipilih');
+        return;
+      }
+      data = data.filter(r => !r[0]);
+      activeRowIndex = null;
+      saveData();
+      renderTable(data);
+    };
+
+    saveBtnManual.onclick = () => saveData();
+
+    document.getElementById('closeLoginModal').onclick = () => loginModal.style.display = 'none';
+
+    document.getElementById('doLoginBtn').onclick = async () => {
+      const email = document.getElementById('emailInput').value.trim();
+      const password = document.getElementById('passwordInput').value.trim();
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        console.log("Login sukses:", userCredential.user.email);
+        loginModal.style.display = 'none';
+      } catch(err) {
+        console.error("Login gagal:", err);
+        alert('Login gagal: ' + err.code + ' - ' + err.message);
+      }
+    };
+
+    loginBtn.onclick = () => {
+      if (auth.currentUser) {
+        signOut(auth);
+      } else {
+        loginModal.style.display = 'block';
+      }
+    };
+      
+          onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        isLoggedIn = true;
+        loginBtn.textContent = '🚪 Logout';
+        extraControls.style.display = 'flex';
+        saveBtnManual.style.display = 'inline-block';
+        table.classList.remove('hide-id');
+        await loadDataFromFirebase();
+      } else {
+        isLoggedIn = false;
+        loginBtn.textContent = '🔑 Login';
+        extraControls.style.display = 'none';
+        saveBtnManual.style.display = 'none';
+        table.classList.add('hide-id');
+        const ok = loadFromLocal();
+        if (!ok) {
+          data = createDefaultRows();
+          activeRowIndex = null;
+        }
+        renderTable(data);
+      }
+    });
+
+    if (!loadFromLocal()) {
+      data = createDefaultRows();
+      activeRowIndex = null;
     }
-    saveData();
     renderTable(data);
-  };
 
-  document.getElementById('deleteRowBtn').onclick = () => {
-    // hapus baris yang ter-checklist
-    const anySelected = data.some(r => r[0]);
-    if (!anySelected) {
-      alert('tidak ada baris yang dipilih');
+    window.addEventListener('click', (ev) => {
+      if (ev.target === loginModal) loginModal.style.display = 'none';
+      const cm = document.getElementById('cellModal');
+      if (ev.target === cm) cm.style.display = 'none';
+    });
+
+    document.getElementById('resetBtn').onclick = () => {
+      document.getElementById('dayInput').value = '';
+      document.getElementById('monthInput').value = '';
+      document.getElementById('yearInput').value = '';
+    };
+    
+  
+    // 🟢 Tambahan fungsi pencarian
+    document.getElementById('searchBtn').onclick = () => {
+      const keyword = document.getElementById('searchInput').value.trim().toLowerCase();
+      const rows = document.querySelectorAll('#myTable tr');
+      rows.forEach((tr, i) => {
+        if (i === 0) return; // lewati header
+        const text = tr.textContent.toLowerCase();
+        tr.classList.toggle('hide', !text.includes(keyword));
+      });
+    };
+
+    document.getElementById('resetSearchBtn').onclick = () => {
+      document.getElementById('searchInput').value = '';
+      const rows = document.querySelectorAll('#myTable tr');
+      rows.forEach((tr, i) => { if (i > 0) tr.classList.remove('hide'); });
+    };
+      
+      
+  // === Fungsi Pencarian Berdasarkan Tanggal, Bulan, dan Tahun ===
+  document.getElementById('filterBtn').addEventListener('click', function() {
+    const day = document.getElementById('dayInput').value.trim();
+    const month = document.getElementById('monthInput').value.trim();
+    const year = document.getElementById('yearInput').value.trim();
+
+    // Ambil semua baris tabel (kecuali header)
+    const table = document.querySelector('table');
+    const rows = table.querySelectorAll('tbody tr');
+
+    // Jika semua input kosong → tampilkan semua baris
+    if (!day && !month && !year) {
+      rows.forEach(row => row.style.display = '');
       return;
     }
-    data = data.filter(r => !r[0]);
-    activeRowIndex = null;
-    saveData();
-    renderTable(data);
-  };
 
-  // ===== Tombol Simpan manual (hanya aktif ketika login) =====
-  saveBtnManual.onclick = () => saveData();
+    rows.forEach(row => {
+      const cells = row.querySelectorAll('td');
 
-  // ===== Login / Logout =====
-  document.getElementById('closeLoginModal').onclick = () => loginModal.style.display = 'none';
-  document.getElementById('doLoginBtn').onclick = async () => {
-  const email = document.getElementById('emailInput').value.trim();
-  const password = document.getElementById('passwordInput').value.trim();
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    console.log("Login sukses:", userCredential.user.email);
-    loginModal.style.display = 'none';
-  } catch(err) {
-    console.error("Login gagal:", err);
-    alert('Login gagal: ' + err.code + ' - ' + err.message);
-  }
-};
+      // Kolom ke-3 = Tanggal, ke-4 = Bulan, ke-5 = Tahun
+      const tgl = cells[2]?.textContent.trim();
+      const bln = cells[3]?.textContent.trim();
+      const thn = cells[4]?.textContent.trim();
 
-  loginBtn.onclick = () => {
-    if (auth.currentUser) {
-      // logout
-      signOut(auth);
-    } else {
-      loginModal.style.display = 'block';
-    }
-  };
+      let cocok = true;
+      if (day && tgl !== day) cocok = false;
+      if (month && bln !== month) cocok = false;
+      if (year && thn !== year) cocok = false;
 
-  // ===== Monitor auth state =====
-  onAuthStateChanged(auth, async (user) => {
-    if (user) {
-      // sudah login: tampilkan kontrol tambahan dan tombol simpan
-      isLoggedIn = true;
-      loginBtn.textContent = '🚪 Logout';
-      extraControls.style.display = 'flex';
-      saveBtnManual.style.display = 'inline-block';
-      table.classList.remove('hide-id'); // tampilkan kolom 1
-      // load data dari firebase (jika ada), override local copy
-      await loadDataFromFirebase();
-    } else {
-      // belum login / logout: sembunyikan kolom 1 & kontrol simpan/insert
-      isLoggedIn = false;
-      loginBtn.textContent = '🔑 Login';
-      extraControls.style.display = 'none';
-      saveBtnManual.style.display = 'none';
-      table.classList.add('hide-id');
-      // tampilkan data dari localStorage (jika ada), jangan reset ke kosong
-      const ok = loadFromLocal();
-      if (!ok) {
-        data = createDefaultRows();
-        activeRowIndex = null;
-      }
-      renderTable(data);
-    }
+      row.style.display = cocok ? '' : 'none';
+    });
   });
 
-  // ===== Inisialisasi awal tampilan =====
-  // ambil data local bila ada (sebelum login)
-  if (!loadFromLocal()) {
-    data = createDefaultRows();
-    activeRowIndex = null;
-  }
-  renderTable(data);
-
-  // Tutup modal login/cell kalau klik di luar
-  window.addEventListener('click', (ev) => {
-    if (ev.target === loginModal) loginModal.style.display = 'none';
-    const cm = document.getElementById('cellModal');
-    if (ev.target === cm) cm.style.display = 'none';
-  });
-
-  // OPTIONAL: filter & reset (tidak diubah fungsi, hanya placeholder)
-  document.getElementById('resetBtn').onclick = () => {
-    // reset input filter
+  // === Fungsi Reset (Tampilkan Semua Baris) ===
+  document.getElementById('resetBtn').addEventListener('click', function() {
     document.getElementById('dayInput').value = '';
     document.getElementById('monthInput').value = '';
     document.getElementById('yearInput').value = '';
-  };
 
-</script>
+    const table = document.querySelector('table');
+    const rows = table.querySelectorAll('tbody tr');
+    rows.forEach(row => row.style.display = '');
+  });
+
+      
+  </script>
 </body>
 </html>
