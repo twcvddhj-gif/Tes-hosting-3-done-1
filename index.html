@@ -272,18 +272,44 @@
               textInput.style.color = selectedColor;
               updatePaletteSelection(selectedColor);
             });
-          } else {
-            cell.textContent = rowData[c] || '';
-            if (isLoggedIn && c >= 1 && c <= 4) {
-              cell.contentEditable = "true";
-              cell.addEventListener('input', () => {
-                data[rIndex][c] = cell.textContent;
-                saveData();
-              });
-            } else {
-              cell.contentEditable = "false";
-            }
-          }
+ } else {
+  cell.textContent = rowData[c] || '';
+  
+  // Kolom  3, 4 jadi input type number saat login
+  if (isLoggedIn && c >= 1 && c <= 4) {
+    cell.contentEditable = "false"; // tidak langsung editable
+    
+    cell.addEventListener('click', () => {
+      // Buat input number
+      const input = document.createElement('input');
+      input.type = (c === 2 || c === 3) ? 'number' : 'text';
+      input.value = cell.textContent.trim();
+      input.style.width = '90%';
+      input.style.textAlign = 'center';
+      cell.innerHTML = '';
+      cell.appendChild(input);
+      input.focus();
+
+      // Simpan saat blur atau tekan Enter
+      const saveInput = () => {
+        let val = input.value.trim();
+        data[rIndex][c] = val;
+        saveData();
+        cell.textContent = val;
+      };
+      input.addEventListener('blur', saveInput);
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          input.blur();
+        }
+      });
+    });
+  } else {
+    cell.contentEditable = "false";
+  }
+}
+
         }
       });
     }
