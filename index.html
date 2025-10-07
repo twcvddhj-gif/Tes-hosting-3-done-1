@@ -47,7 +47,7 @@
     button:hover { background:#3a2418; }
     .extra-controls { display:none; gap:10px; margin-left:auto; }
     .table-container { width:100vw; height:calc(100vh - 260px); overflow:auto; padding:10px; }
-    table { border-collapse:collapse; width:100%; min-width:1000px; background:#f5deb3; }
+    table { border-collapse:collapse; width:100%; table-layout:fixed; background:#f5deb3; }
     th, td { border:1px solid #8b5e3c; padding:8px; text-align:left; }
     th { position:sticky; top:0; background:#8b5e3c; color:white; z-index:1; }
     td { background:#f5deb3; user-select:none; word-wrap:break-word; white-space:pre-wrap; }
@@ -172,18 +172,18 @@
     const table = document.getElementById('myTable');
     const palette = document.getElementById('palette');
     const columnSettings = [
-      { name:'✓', width:'30px' },
-      { name:'Periode', width:'300px' },
+      { name:'✓', width:'25px' },
+      { name:'Periode', width:'200px' },
       { name:'Tgl', width:'50px' },
       { name:'Bln', width:'50px' },
-      { name:'Thn', width:'100px' },
-      { name:'Asia Barat', width:'800px' },
-      { name:'Asia Timur', width:'800px' },
-      { name:'Asia Selatan/Tengah', width:'800px' },
-      { name:'Eropa', width:'800px' },
-      { name:'Afrika', width:'800px' },
-      { name:'Amerika', width:'800px' },
-      { name:'Australia/Pasifik', width:'800px' }
+      { name:'Thn', width:'85px' },
+      { name:'Asia Barat', width:'250px' },
+      { name:'Asia Timur', width:'250px' },
+      { name:'Asia Selatan/Tengah', width:'250px' },
+      { name:'Eropa', width:'250px' },
+      { name:'Afrika', width:'250px' },
+      { name:'Amerika', width:'250px' },
+      { name:'Australia/Pasifik', width:'250px' }
     ];
 
     const extraControls = document.getElementById('extraControls');
