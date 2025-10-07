@@ -29,29 +29,22 @@
     .save-btn { background:#4b2e1e; color:#fff; }
     .cancel-btn { background:#ccc; }
     .link-icon { margin-left:5px; cursor:pointer; text-decoration:none; }
+  
+  
+  
+    .palette { display:flex; justify-content:space-between; margin:10px 0; }
+    .color-box {
+      width:30px; height:30px; border-radius:50%; border:2px solid #555;
+      cursor:pointer; transition:transform 0.15s;
+    }
+    .color-box:hover { transform:scale(1.08); }
+    .selected-color { border:3px solid #000; }
 
-    /* ===== Tambahan: palet warna ===== */
-    .color-palette {
-      display: flex;
-      justify-content: center;
-      gap: 10px;
-      margin-top: 10px;
-    }
-    .color-swatch {
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
-      cursor: pointer;
-      border: 2px solid #ccc;
-      transition: transform 0.2s, border-color 0.2s;
-    }
-    .color-swatch:hover {
-      transform: scale(1.2);
-      border-color: #000;
-    }
-    .color-swatch.selected {
-      border: 3px solid black;
-    }
+  
+  
+  
+  
+  
   </style>
 </head>
 <body>
@@ -89,19 +82,20 @@
       <h3>Edit Sel</h3>
       <label for="textInput">Isi Teks (max 100 karakter):</label>
       <input type="text" id="textInput" maxlength="100">
-
-      <!-- 🟩 Tambahan: palet warna -->
-      <div class="color-palette" id="colorPalette">
-        <div class="color-swatch" data-color="#000000" style="background:#000000;"></div>
-        <div class="color-swatch" data-color="#e91e63" style="background:#e91e63;"></div>
-        <div class="color-swatch" data-color="#2196f3" style="background:#2196f3;"></div>
-        <div class="color-swatch" data-color="#4caf50" style="background:#4caf50;"></div>
-        <div class="color-swatch" data-color="#ff9800" style="background:#ff9800;"></div>
+      
+      <!-- Palet Warna -->
+      <div class="palette" id="palette">
+        <div class="color-box" style="background:#000000;" data-color="#000000" title="Hitam"></div>
+        <div class="color-box" style="background:#b30000;" data-color="#b30000" title="Merah gelap"></div>
+        <div class="color-box" style="background:#0057b3;" data-color="#0057b3" title="Biru"></div>
+        <div class="color-box" style="background:#008a00;" data-color="#008a00" title="Hijau"></div>
+        <div class="color-box" style="background:#ff7700;" data-color="#ff7700" title="Orange"></div>
       </div>
 
+      
+      
       <label for="urlInput">Alamat URL (opsional):</label>
       <input type="url" id="urlInput" placeholder="https://contoh.com">
-
       <div class="modal-buttons">
         <button class="cancel-btn" id="cancelBtn">Batal</button>
         <button class="save-btn" id="saveCellBtn">Simpan</button>
@@ -131,21 +125,30 @@
   import { getDatabase, ref, set, get } 
     from "https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js";
 
+  // ====== CONFIG: ganti dengan milik Anda ======
   const firebaseConfig = {
-  apiKey: "AIzaSyDYPw-KiuPUX9NNZRlvdAcolTOBKcE-j_E",
-  authDomain: "tesss-6698c.firebaseapp.com",
-  projectId: "tesss-6698c",
-  storageBucket: "tesss-6698c.firebasestorage.app",
-  messagingSenderId: "235312314755",
-  appId: "1:235312314755:web:a898dde7297985bd121eb6"
+  apiKey: "AIzaSyBZa4N4Qb1-c2nSxfmgTu947yYSbYlgmfU",
+  authDomain: "th2-7-dd72b.firebaseapp.com",
+  databaseURL: "https://th2-7-dd72b-default-rtdb.firebaseio.com",
+  projectId: "th2-7-dd72b",
+  storageBucket: "th2-7-dd72b.appspot.com",
+  messagingSenderId: "219227245083",
+  appId: "1:219227245083:web:28b54f33d3650b2128c6be"
 };
+
+  // =============================================
 
   const app = initializeApp(firebaseConfig);
   const auth = getAuth(app);
   const db = getDatabase(app);
+      
+  
+  
 
   const rowsDefault = 40;
   const cols = 12;
+  const table = document.getElementById('myTable');
+  const palette = document.getElementById('palette');
   const columnSettings = [
     { name: '✓', width: '30px' },
     { name: 'Periode', width: '300px' },
@@ -161,42 +164,25 @@
     { name: 'Australia/Pasifik', width: '800px' },
   ];
 
-  const table = document.getElementById('myTable');
+  // Elemen DOM
+  
   const extraControls = document.getElementById('extraControls');
   const saveBtnManual = document.getElementById('saveBtnManual');
   const loginBtn = document.getElementById('loginBtn');
   const loginModal = document.getElementById('loginModal');
+  
 
+  // Status & data
   let data = [];
   let isLoggedIn = false;
   let currentCellRow = null;
   let currentCellCol = null;
   let activeRowIndex = null;
-  let selectedColor = "#000000"; // 🟩 Warna default hitam
-
-  // =========== FUNGSI PALET WARNA ===========
-  const colorPalette = document.getElementById("colorPalette");
-  const textInput = document.getElementById("textInput");
-
-  colorPalette.querySelectorAll(".color-swatch").forEach(swatch => {
-    swatch.addEventListener("click", () => {
-      selectedColor = swatch.getAttribute("data-color");
-
-      // update tampilan text input
-      textInput.style.color = selectedColor;
-
-      // tandai warna terpilih
-      colorPalette.querySelectorAll(".color-swatch").forEach(s => s.classList.remove("selected"));
-      swatch.classList.add("selected");
-
-      // ubah warna preview teks pada sel saat modal dibuka
-      if (currentCellRow !== null && currentCellCol !== null) {
-        const tableCell = table.rows[currentCellRow + 1].cells[currentCellCol];
-        tableCell.style.color = selectedColor;
-      }
-    });
-  });
-  // ==========================================
+  let selectedColor = "#000000"; // default black
+  
+  
+  
+  
 
   // ===== Helper: buat default rows =====
   function createDefaultRows() {
@@ -259,6 +245,8 @@
           if (val && typeof val === 'object') {
             const span = document.createElement('span');
             span.textContent = val.text || '';
+            span.style.color = val.color || '#000000';
+
             cell.appendChild(span);
             if (val.url) {
               const link = document.createElement('a');
@@ -279,9 +267,18 @@
             currentCellRow = rIndex;
             currentCellCol = c;
             const existing = data[rIndex][c];
+            const colorVal = (existing && typeof existing === 'object') ? (existing.color || '#000000') : '#000000';
             document.getElementById('textInput').value = (existing && typeof existing === 'object') ? (existing.text || '') : (cell.querySelector('span')?.textContent || cell.textContent || '');
             document.getElementById('urlInput').value = (existing && typeof existing === 'object') ? (existing.url || '') : '';
             document.getElementById('cellModal').style.display = 'block';
+
+// ambil warna dari data (atau default hitam)
+selectedColor = colorVal;
+textInput.style.color = selectedColor;
+updatePaletteSelection(selectedColor);
+
+            
+            
           });
         } else {
           // kolom biasa (1..4 / indeks 1..4)
@@ -299,26 +296,48 @@
       }
     });
   }
-    
-      // ===== Modal edit sel =====
+
+  // ===== Modal edit sel =====
   document.getElementById('cancelBtn').onclick = () => {
     document.getElementById('cellModal').style.display = 'none';
   };
   document.getElementById('saveCellBtn').onclick = () => {
-    const t = document.getElementById('textInput').value || '';
-    const u = document.getElementById('urlInput').value || '';
-    if (currentCellRow !== null && currentCellCol !== null) {
-      data[currentCellRow][currentCellCol] = { text: t, url: u };
-      saveData();
-      renderTable(data);
-    }
-    document.getElementById('cellModal').style.display = 'none';
-  };
+  const t = document.getElementById('textInput').value || '';
+  const u = document.getElementById('urlInput').value || '';
+  const c = selectedColor || '#000000';
+  if (currentCellRow !== null && currentCellCol !== null) {
+    data[currentCellRow][currentCellCol] = { text: t, url: u, color: c };
+    saveData();
+    renderTable(data);
+  }
+  document.getElementById('cellModal').style.display = 'none';
+};
+
   window.addEventListener('click', (ev) => {
     const modal = document.getElementById('cellModal');
     if (ev.target === modal) modal.style.display = 'none';
   });
 
+    
+    
+    
+  // ===== Warna teks
+  function updatePaletteSelection(color) {
+    document.querySelectorAll('.color-box').forEach(b => {
+      b.classList.toggle('selected-color', b.dataset.color === color);
+    });
+  }
+
+  palette.addEventListener('click', e => {
+    if (e.target.classList.contains('color-box')) {
+      selectedColor = e.target.dataset.color;
+      document.getElementById('textInput').style.color = selectedColor;
+      updatePaletteSelection(selectedColor);
+    }
+  });
+
+    
+    
   // ===== Local storage helpers =====
   const LOCAL_KEY = 'tableData_v1';
   function saveLocalCopy() {
@@ -388,8 +407,8 @@
       return false;
     }
   }
-    
-      // ===== Insert / Delete rows =====
+
+  // ===== Insert / Delete rows =====
   document.getElementById('insertRowBtn').onclick = () => {
     const newRow = Array(cols).fill("");
     newRow[0] = false;
@@ -423,15 +442,18 @@
   // ===== Login / Logout =====
   document.getElementById('closeLoginModal').onclick = () => loginModal.style.display = 'none';
   document.getElementById('doLoginBtn').onclick = async () => {
-    const email = document.getElementById('emailInput').value;
-    const password = document.getElementById('passwordInput').value;
-    try {
-      await signInWithEmailAndPassword(auth, email, password);
-      loginModal.style.display = 'none';
-    } catch(err) {
-      alert('Login gagal: ' + err.message);
-    }
-  };
+  const email = document.getElementById('emailInput').value.trim();
+  const password = document.getElementById('passwordInput').value.trim();
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, password);
+    console.log("Login sukses:", userCredential.user.email);
+    loginModal.style.display = 'none';
+  } catch(err) {
+    console.error("Login gagal:", err);
+    alert('Login gagal: ' + err.code + ' - ' + err.message);
+  }
+};
+
   loginBtn.onclick = () => {
     if (auth.currentUser) {
       // logout
@@ -468,8 +490,8 @@
       renderTable(data);
     }
   });
-    
-      // ===== Inisialisasi awal tampilan =====
+
+  // ===== Inisialisasi awal tampilan =====
   // ambil data local bila ada (sebelum login)
   if (!loadFromLocal()) {
     data = createDefaultRows();
@@ -491,11 +513,7 @@
     document.getElementById('monthInput').value = '';
     document.getElementById('yearInput').value = '';
   };
-    
-    
-    
-    
-    </script>
+
+</script>
 </body>
 </html>
-
